@@ -1,8 +1,12 @@
 # Upwind Sensor – Prerequisites Check
 
-A read-only Bash script that checks whether a Linux host meets the prerequisites to install the **Upwind Sensor** (US region).
 
 It **does not install anything** and does not change the system. It only reads system information and tests network connectivity.
+
+
+# Linux Sensor
+
+A read-only Bash script that checks whether a Linux host meets the prerequisites to install the **Upwind Sensor** (US region).
 
 ## Quick start
 
@@ -121,6 +125,70 @@ Useful for automation (Ansible, CI pipelines, etc.).
 - `getent`, `timeout` (coreutils)
 - No root required
 
-## Disclaimer
+
+# Windows
+
+## Quick start
+
+`check-sensor.ps1` validates prerequisites for a fresh install of the Upwind Sensor on Windows
+(`https://get.upwind.io/sensor.ps1`, v0.7.0, `install` subcommand). Region is fixed to `us`.
+
+Read-only: it installs nothing, changes no settings and sends no credentials.
+
+### Parameters
+
+| Parameter         | Default            | Description                                   |
+|-------------------|--------------------|-----------------------------------------------|
+| `-ConfigPath`     | `$env:UPWIND_CONFIG` | Path to the config YAML (checked if set)    |
+| `-MinFreeSpaceMB` | `500`              | Minimum free space on the `%TEMP%` drive      |
+| `-TimeoutMs`      | `5000`             | Network timeout per test                      |
+
+```PS
+[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; irm https://raw.githubusercontent.com/cjuniordevsecops/upwind/refs/heads/main/check-sensor.ps1 | iex
+```
+
+There is no proxy parameter: HTTPS tests use the system proxy (see Quick start).
+
+```PS
+$p = New-Object Net.WebProxy('http://proxy.suaempresa:8080', $true)
+$p.Credentials = [Net.CredentialCache]::DefaultNetworkCredentials
+[Net.WebRequest]::DefaultWebProxy = $p
+[Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+irm https://raw.githubusercontent.com/cjuniordevsecops/upwind/refs/heads/main/check-sensor.ps1 | iex
+```
+
+### What it checks
+
+1. **Administrator** – the installer must run elevated (FAIL otherwise).
+2. **Architecture** – AMD64 or ARM64. WARN if running 32-bit PowerShell on a 64-bit OS.
+3. **OS / PowerShell / .NET** – OS version (INFO), PowerShell 5.1+ (WARN if older), .NET Framework 4.x release (INFO).
+4. **Language mode and Add-Type** – the installer compiles C# with `Add-Type` (P/Invoke into `advapi32`).
+   Requires `FullLanguage` mode; a compile-only test detects blocks by AppLocker, WDAC or antivirus.
+5. **Execution policy** – WARN if `Restricted` or `AllSigned`.
+6. **Required cmdlets** – `Invoke-RestMethod`, `Get-FileHash`, `Get-WinEvent`, `Get-Service`, `Start-Service`, `Stop-Service`.
+7. **`UPWIND_CONFIG`** – if set, the file must exist.
+8. **Optional variables (format only)** – `UPWIND_ENABLE_SCANNER`, `UPWIND_ENABLE_HOST_SCAN`, `UPWIND_AUTO_UPDATE`
+   (true/false) and `UPWIND_HOST_SCAN_INTERVAL`, `UPWIND_AUTO_UPDATE_INTERVAL` (integer, minutes).
+9. **Windows Installer** – `msiexec.exe` present, `msiserver` service not disabled, no other MSI install
+   in progress (would fail with error 1618), no pending reboot.
+10. **`%TEMP%`** – writable, with at least `-MinFreeSpaceMB` free (the installer downloads the MSI and writes logs there).
+11. **Existing installation** – Upwind entries in the Uninstall registry and the `UpwindSensor` service (INFO).
+12. **Network** – TLS 1.2 enabled in the session, WinHTTP proxy (INFO), then for each host: DNS, TCP 443 and HTTPS.
+    Finally, a real download of `https://releases.upwind.io/upwind-agent/stable-windows.txt`.
+
+| Host                 | Purpose                    |
+|----------------------|----------------------------|
+| `releases.upwind.io` | Agent packages (MSI)       |
+| `oauth.upwind.io`    | OAuth token                |
+| `agent.upwind.io`    | Agent API                  |
+
+### Notes behind a proxy
+
+- **TCP 443** returns WARN when direct outbound traffic is blocked. This is expected.
+- If internal DNS does not resolve external names, the **DNS** test fails and the HTTPS test for that host is skipped.
+  The **Stable version (download)** test still runs and is the one that confirms access through the proxy.
+- Unlike the Linux script, it does not report the certificate issuer.
+
+# Disclaimer
 
 This is an unofficial helper script. Always confirm the current requirements and endpoint list with Upwind's official documentation, since they may change.

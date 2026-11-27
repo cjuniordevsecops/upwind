@@ -1,4 +1,29 @@
 #!/usr/bin/env bash
+#
+# SYNOPSIS
+#   Validates prerequisites for a fresh install of the Upwind Sensor on Linux
+#   (https://get.upwind.io/sensor.sh).
+#
+# DESCRIPTION
+#   Read-only. Installs nothing, changes no settings and sends no credentials.
+#   Checks kernel version (>= 4.14), BPF/BTF support in /boot/config-$(uname -r)
+#   (same logic as sensor.sh: std, bcc or unsupported) and DNS/TCP 443/HTTPS/TLS
+#   reachability of the Upwind endpoints (console, api, auth, get, agent, oauth,
+#   releases, registry .upwind.io).
+#   Honors HTTPS_PROXY/https_proxy (direct TCP and certificate checks skipped).
+#   TIMEOUT (default 5s) sets the per-test network timeout.
+#   Exit code: 0 = no failures, 1 = one or more FAIL items.
+#
+# EXAMPLE
+#   ./check-sensor.sh
+#
+# EXAMPLE
+#   TIMEOUT=10 HTTPS_PROXY=http://proxy:3128 ./check-sensor.sh
+#
+# EXAMPLE
+#   curl -fsSL https://raw.githubusercontent.com/cjuniordevsecops/upwind/refs/heads/main/check-sensor.sh | bash
+#
+
 echo '
  sssss    ccccc      a     n     n   ssssss   eeeeeeee   cccccc 
 s     s  c     c    a a    nn    n  s      s  e         c      c
